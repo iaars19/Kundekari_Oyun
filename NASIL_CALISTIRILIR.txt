@@ -1,0 +1,10 @@
+Kundekari Sanati - Oyun Paketi
+
+Oyunu acmak icin KundekariSanati.exe dosyasina cift tiklayin.
+Python kurmaniz gerekmez.
+
+.exe dosyaları yapıları gereği doğru kaynaktan alınmaz ise tehlikeli olabilirler. Windows SmartScreen uyarisi gorunurse, dosyaları yalnizca güvenilir kaynaktan
+aldiginizdan eminseniz "Daha fazla bilgi" > "Yine de calistir" secenegini
+kullanin.
+
+Kundekari_Sanati_Oyun_Tanitimi_Ibrahim.docx dosyasi oyunun tanitim metnidir.
