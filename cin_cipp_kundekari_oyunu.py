@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import font as tkfont
 import math
 import random
 
@@ -36,7 +37,7 @@ QUESTIONS = [
             "Ahşabın nemden çatlamasını ve eğilmesini önlemek için",
             "Taşınması hafif olsun diye",
             "Ucuz olduğu için",
-            "Kolay kırıldığı için",
+            "Daha hızlı üretim için",
         ],
         "answer": 0,
     },
@@ -66,7 +67,7 @@ QUESTIONS = [
         "answer": 0,
     },
     {
-        "text": "İyi korunmuş bir kündekari eser ne kadar dayanabilir?",
+        "text": "İyi korunmuş bir kündekari sanatı kaç yıl dayanabilir?",
         "options": ["10 yıl", "50 yıl", "Yüzyıllarca", "2 yıl"],
         "answer": 2,
     },
@@ -164,7 +165,7 @@ STAGES = [
         "location_description": "Minber, cuma ve bayram namazlarında hutbe okumak amacıyla camilerde mihrabın sağına yapılan; süslü kapısı, merdiveni ve özellikle kündekârî ahşap sanatının en nadide örneklerinin sergilendiği mimari yapıdır.",
     },
     {
-        "title": "Bölüm 5/5: Mevlânâ Celâleddîn-i Rûmî",
+        "title": "Bölüm 5/5: Mevlânâ Celâleddîn-i Rûmî (UNESCO Mevlana and Tolerance Year/2007)",
         "color": "#dce6e2",
         "intro": "Mevlânâ Celâleddîn-i Rûmî: Mirasın son sınavına hoş geldin!",
         "character": "Mevlânâ Celâleddîn-i Rûmî",
@@ -182,16 +183,22 @@ class CippOyunu:
         self.root = root
         self.root.title("Kündekari Sanatı")
         self.root.geometry("1000x700")
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
+        self.fullscreen = True
+        self.root.attributes("-fullscreen", self.fullscreen)
 
         self.canvas = tk.Canvas(root, width=1000, height=700, highlightthickness=0)
-        self.canvas.pack()
+        self.canvas.pack(fill="both", expand=True)
         self.canvas.focus_set()
+        self.font_metrics = {}
 
         self.root.bind("<KeyPress>", self.key_down)
         self.root.bind("<KeyRelease>", self.key_up)
+        self.canvas.bind("<MouseWheel>", self.mouse_wheel)
+        self.canvas.bind("<Button-4>", self.mouse_wheel)
+        self.canvas.bind("<Button-5>", self.mouse_wheel)
 
-        self.game_state = "menu"
+        self.game_state = "intro"
         self.keys = set()
         self.test_mode = False
         self.test_code = []
@@ -199,11 +206,19 @@ class CippOyunu:
         self.score = 0
         self.health = 5
         self.player_x = 500
-        self.player_y = 610
+        self.player_y = 550
+        self.inventory = ["sword"]
+        self.equipped_item = "sword"
+        self.shield_block_frames = 0
         self.enemies = []
+        self.projectiles = []
+        self.enemy_projectiles = []
         self.seals = []
         self.active_seal = None
         self.hit_cooldown = 0
+        self.attack_cooldown = 0
+        self.sword_swing_frames = 0
+        self.sword_swing_angle = -math.pi / 2
         self.message = ""
         self.frame_count = 0
         self.particles = []
@@ -217,21 +232,36 @@ class CippOyunu:
                 "size": random.choice((2, 3, 4)),
             })
 
-        self.draw_menu()
+        self.draw_intro()
         self.root.after(33, self.game_loop)
 
     def start_game(self):
         self.stage = 1
         self.score = 0
         self.health = 5
+        self.inventory = ["sword"]
+        self.equipped_item = "sword"
+        self.shield_block_frames = 0
         self.game_state = "playing"
         self.load_stage()
 
     def load_stage(self):
         self.player_x = 500
-        self.player_y = 610
+        self.player_y = 550
         self.hit_cooldown = 0
+        self.attack_cooldown = 0
+        self.sword_swing_frames = 0
         self.message = STAGES[self.stage - 1]["intro"]
+        new_items = []
+        if self.stage >= 2 and "shield" not in self.inventory:
+            self.inventory.append("shield")
+            new_items.append("Kalkan")
+        if self.stage >= 3 and "ranged" not in self.inventory:
+            self.inventory.append("ranged")
+            new_items.append("Enerji küresi")
+        if new_items:
+            self.equipped_item = self.inventory[-1]
+            self.message += " Yeni eşya: " + ", ".join(new_items) + ". I ile envanter."
 
         self.seals = []
         first_question = (self.stage - 1) * 3
@@ -247,17 +277,43 @@ class CippOyunu:
             })
 
         self.enemies = []
-        enemy_count = self.stage + 2
+        self.projectiles = []
+        self.enemy_projectiles = []
+        enemy_count = self.stage + 5
+        enemy_types = ("normal", "shielded", "armed")
 
         for number in range(enemy_count):
             enemy_x = 180 + (number % 5) * 160
-            enemy_y = 170 + (number // 5) * 90
-            self.enemies.append({"x": enemy_x, "y": enemy_y})
+            enemy_y = 170 + (number // 5) * 80
+            enemy_type = enemy_types[number % len(enemy_types)]
+            enemy_health = 3 + (self.stage - 1) // 2
+            if enemy_type == "armed":
+                enemy_health = max(2, enemy_health - 1)
+            self.enemies.append({
+                "x": enemy_x,
+                "y": enemy_y,
+                "type": enemy_type,
+                "health": enemy_health,
+                "max_health": enemy_health,
+                "shield_active": enemy_type == "shielded",
+                "shield_cooldown": 0,
+                "shoot_cooldown": 45 + number * 13,
+            })
 
     def key_down(self, event):
         key = event.keysym.lower()
         self.test_code.append(key)
         self.test_code = self.test_code[-10:]
+
+        if key == "f11":
+            self.fullscreen = not self.fullscreen
+            self.root.attributes("-fullscreen", self.fullscreen)
+            return
+
+        if self.game_state == "intro":
+            if key in ("return", "space"):
+                self.game_state = "menu"
+            return
 
         if self.test_code == [
             "up", "up", "down", "down", "left",
@@ -298,8 +354,19 @@ class CippOyunu:
             return
 
         if self.game_state == "paused":
-            if key in ("escape", "p"):
+            if key == "p":
                 self.game_state = "playing"
+            elif key == "r":
+                self.start_game()
+            elif key == "escape":
+                self.game_state = "menu"
+            return
+
+        if self.game_state == "inventory":
+            if key in ("i", "escape"):
+                self.game_state = "playing"
+            elif key in ("1", "2", "3"):
+                self.select_inventory_item(int(key) - 1)
             return
 
         if self.game_state == "quiz":
@@ -309,8 +376,12 @@ class CippOyunu:
 
         if key in ("escape", "p"):
             self.game_state = "paused"
+        elif key == "i":
+            self.game_state = "inventory"
         elif key == "space":
-            self.attack()
+            if key not in self.keys:
+                self.keys.add(key)
+                self.attack()
         elif key == "e":
             self.interact()
         else:
@@ -319,6 +390,36 @@ class CippOyunu:
     def key_up(self, event):
         key = event.keysym.lower()
         self.keys.discard(key)
+
+    def select_inventory_item(self, index):
+        if index >= len(self.inventory):
+            return
+
+        self.equipped_item = self.inventory[index]
+        self.game_state = "playing"
+        item_names = {
+            "sword": "Kılıç",
+            "shield": "Kalkan",
+            "ranged": "Enerji küresi",
+        }
+        self.message = item_names[self.equipped_item] + " seçildi."
+
+    def cycle_inventory(self, direction):
+        if self.game_state not in ("playing", "inventory") or len(self.inventory) < 2:
+            return
+
+        current_index = self.inventory.index(self.equipped_item)
+        next_index = (current_index + direction) % len(self.inventory)
+        self.select_inventory_item(next_index)
+
+    def mouse_wheel(self, event):
+        if getattr(event, "num", None) == 4:
+            direction = -1
+        elif getattr(event, "num", None) == 5:
+            direction = 1
+        else:
+            direction = -1 if event.delta > 0 else 1
+        self.cycle_inventory(direction)
 
     def move_player(self):
         change_x = 0
@@ -339,29 +440,99 @@ class CippOyunu:
             self.player_y += change_y / distance * 4
 
         self.player_x = max(25, min(975, self.player_x))
-        self.player_y = max(70, min(660, self.player_y))
+        self.player_y = max(70, min(570, self.player_y))
 
     def move_enemies(self):
         if self.hit_cooldown > 0:
             self.hit_cooldown -= 1
 
         for enemy in self.enemies:
+            if enemy["type"] == "shielded" and not enemy["shield_active"]:
+                enemy["shield_cooldown"] -= 1
+                if enemy["shield_cooldown"] <= 0:
+                    enemy["shield_active"] = True
+
             difference_x = self.player_x - enemy["x"]
             difference_y = self.player_y - enemy["y"]
             distance = math.hypot(difference_x, difference_y)
+            enemy_type = enemy["type"]
 
-            if distance > 28:
-                speed = 1.2 + self.stage * 0.18
+            if enemy_type == "normal" and distance > 28:
+                speed = 2.0 + self.stage * 0.3
                 enemy["x"] += difference_x / distance * speed
                 enemy["y"] += difference_y / distance * speed
-            elif self.hit_cooldown == 0:
-                self.health -= 1
-                self.hit_cooldown = 30
-                self.message = "Düşman sana dokundu!"
-                self.spawn_particles(self.player_x, self.player_y, "#e45b55")
+            elif enemy_type == "shielded" and distance > 28:
+                speed = 1.4 + self.stage * 0.18
+                enemy["x"] += difference_x / distance * speed
+                enemy["y"] += difference_y / distance * speed
+            elif enemy_type == "armed":
+                speed = 1.5 + self.stage * 0.16
+                if distance > 250:
+                    enemy["x"] += difference_x / distance * speed
+                    enemy["y"] += difference_y / distance * speed
+                elif distance < 150 and distance > 0:
+                    enemy["x"] -= difference_x / distance * speed
+                    enemy["y"] -= difference_y / distance * speed
 
-                if self.health <= 0:
-                    self.game_state = "game_over"
+                enemy["shoot_cooldown"] -= 1
+                if enemy["shoot_cooldown"] <= 0 and distance > 0:
+                    projectile_speed = 5
+                    self.enemy_projectiles.append({
+                        "x": enemy["x"],
+                        "y": enemy["y"],
+                        "vx": difference_x / distance * projectile_speed,
+                        "vy": difference_y / distance * projectile_speed,
+                        "life": 100,
+                        "owner": enemy,
+                    })
+                    enemy["shoot_cooldown"] = max(55, 105 - self.stage * 8)
+            elif self.hit_cooldown == 0:
+                self.damage_player("Düşman sana dokundu!")
+
+            if enemy_type != "armed" and distance <= 28 and self.hit_cooldown == 0:
+                self.damage_player("Düşman sana dokundu!")
+
+    def damage_player(self, message):
+        if self.shield_block_frames > 0:
+            self.shield_block_frames = 0
+            self.hit_cooldown = 15
+            self.message = "Kalkan darbeyi engelledi!"
+            self.spawn_particles(self.player_x, self.player_y, "#73c7dc")
+            return
+
+        self.health -= 1
+        self.hit_cooldown = 30
+        self.message = message
+        self.spawn_particles(self.player_x, self.player_y, "#e45b55")
+        if self.health <= 0:
+            self.game_state = "game_over"
+
+    def update_enemy_projectiles(self):
+        for projectile in self.enemy_projectiles[:]:
+            projectile["x"] += projectile["vx"]
+            projectile["y"] += projectile["vy"]
+            projectile["life"] -= 1
+
+            hit_enemy = next((
+                enemy for enemy in self.enemies
+                if enemy is not projectile["owner"] and math.hypot(
+                    projectile["x"] - enemy["x"],
+                    projectile["y"] - enemy["y"],
+                ) < 20
+            ), None)
+
+            if hit_enemy is not None:
+                self.enemy_projectiles.remove(projectile)
+                self.hit_enemy(hit_enemy, award_score=False)
+            elif math.hypot(
+                projectile["x"] - self.player_x,
+                projectile["y"] - self.player_y,
+            ) < 20:
+                self.enemy_projectiles.remove(projectile)
+                if self.hit_cooldown == 0:
+                    self.damage_player("Uzaktan saldıran düşmanın küresi isabet etti!")
+            elif projectile["life"] <= 0:
+                self.enemy_projectiles.remove(projectile)
 
     def spawn_particles(self, x, y, color):
         for _ in range(8):
@@ -377,8 +548,21 @@ class CippOyunu:
             })
 
     def attack(self):
+        if self.attack_cooldown > 0:
+            return
+
+        if self.equipped_item == "shield":
+            self.shield_block_frames = 36
+            self.attack_cooldown = 45
+            self.message = "Kalkanını kaldırdın!"
+            return
+
+        if self.equipped_item == "sword":
+            self.sword_swing_frames = 8
+
         closest_enemy = None
-        closest_distance = 60
+        attack_range = 100 if self.equipped_item == "sword" else 460
+        closest_distance = attack_range
 
         for enemy in self.enemies:
             distance = math.hypot(
@@ -390,14 +574,73 @@ class CippOyunu:
                 closest_distance = distance
 
         if closest_enemy is not None:
-            self.enemies.remove(closest_enemy)
-            self.score += 20
-            self.message = "Bir düşmanı yendin!"
-            self.spawn_particles(
-                closest_enemy["x"], closest_enemy["y"], "#ffd166"
-            )
+            if self.equipped_item == "sword":
+                self.attack_cooldown = 18
+                self.sword_swing_angle = math.atan2(
+                    closest_enemy["y"] - self.player_y,
+                    closest_enemy["x"] - self.player_x,
+                )
+                self.hit_enemy(closest_enemy)
+                return
+
+            difference_x = closest_enemy["x"] - self.player_x
+            difference_y = closest_enemy["y"] - self.player_y
+            distance = math.hypot(difference_x, difference_y)
+            projectile_speed = 9
+            self.projectiles.append({
+                "x": self.player_x,
+                "y": self.player_y,
+                "vx": difference_x / distance * projectile_speed,
+                "vy": difference_y / distance * projectile_speed,
+                "life": 60,
+            })
+            self.attack_cooldown = 24
+            self.message = "Enerji küresi gönderildi!"
+        elif self.equipped_item == "sword":
+            self.attack_cooldown = 18
+            self.sword_swing_angle = -math.pi / 2
+            self.message = "Kılıç savruldu. Düşmana biraz yaklaş."
         else:
-            self.message = "Saldırmak için bir düşmana yaklaş."
+            self.message = "Menzilde düşman yok."
+
+    def hit_enemy(self, enemy, award_score=True):
+        if enemy["type"] == "shielded" and enemy["shield_active"]:
+            enemy["shield_active"] = False
+            enemy["shield_cooldown"] = 120
+            particle_color = "#73c7dc"
+            self.message = "Kalkan kırıldı! Açıkken saldır."
+        else:
+            enemy["health"] -= 1
+            if enemy["health"] <= 0:
+                self.enemies.remove(enemy)
+                if award_score:
+                    self.score += 20
+                particle_color = "#ffd166"
+                self.message = "Bir düşmanı yendin!"
+            else:
+                particle_color = "#e98555"
+                self.message = "Düşman yaralandı!"
+        self.spawn_particles(enemy["x"], enemy["y"], particle_color)
+
+    def update_projectiles(self):
+        for projectile in self.projectiles[:]:
+            projectile["x"] += projectile["vx"]
+            projectile["y"] += projectile["vy"]
+            projectile["life"] -= 1
+
+            hit_enemy = next((
+                enemy for enemy in self.enemies
+                if math.hypot(
+                    projectile["x"] - enemy["x"],
+                    projectile["y"] - enemy["y"],
+                ) < 20
+            ), None)
+
+            if hit_enemy is not None:
+                self.projectiles.remove(projectile)
+                self.hit_enemy(hit_enemy)
+            elif projectile["life"] <= 0:
+                self.projectiles.remove(projectile)
 
     def interact(self):
         stage_info = STAGES[self.stage - 1]
@@ -484,8 +727,16 @@ class CippOyunu:
                 self.particles.remove(particle)
 
         if self.game_state == "playing":
+            if self.attack_cooldown > 0:
+                self.attack_cooldown -= 1
+            if self.shield_block_frames > 0:
+                self.shield_block_frames -= 1
+            if self.sword_swing_frames > 0:
+                self.sword_swing_frames -= 1
             self.move_player()
             self.move_enemies()
+            self.update_projectiles()
+            self.update_enemy_projectiles()
 
     def draw_menu(self):
         self.canvas.delete("all")
@@ -535,6 +786,66 @@ class CippOyunu:
             440,
             text="1: Oyuna başla     2: Nasıl oynanır?     3: Hakkında     4: Çıkış",
             fill="#f4eee2", font=("Arial", 14),
+        )
+
+        self.canvas.create_text(
+            100,
+            650,
+            text="WASD/Yön: hareket   SPACE: eşya kullan   I: envanter   P: duraklat",
+            fill="#003f24", font=("Arial", 10),
+        )
+
+
+    def draw_intro(self):
+        self.canvas.delete("all")
+        self.canvas.configure(bg="#e8d5b5")
+        self.canvas.create_rectangle(
+            65, 95, 765, 610,
+            fill="#fffdf7", outline="#493722", width=3,
+        )
+        self.canvas.create_text(
+            415, 145, text="Gölge Usta", fill="#111111",
+            font=("Georgia", 30, "bold"),
+        )
+        self.canvas.create_text(
+            415, 235,
+            text=(
+                "Selam yolcu. Ben Gölge Usta. Kündekari mirasını korumak "
+                "için mühürleri topla, soruları cevapla ve beş bölümü tamamla. "
+                "Karşına çıkan düşmanları uygun eşyanla yen; kalkanlıların "
+                "kalkanı açıldığında harekete geç."
+            ),
+            width=590, justify="left", font=("Arial", 16),
+        )
+        self.canvas.create_text(
+            415, 390,
+            text=(
+                "WASD / yön tuşları: hareket\n"
+                "SPACE: seçili eşyayı kullan    E: etkileşim\n"
+                "Fare tekerleği: eşya değiştir    I: envanter\n"
+                "P: duraklat\n"
+                "F11: tam ekran\n"
+                "Duraklatınca R: yeniden başlat"
+            ),
+            width=590, justify="left", font=("Arial", 14, "bold"),
+        )
+        self.canvas.create_polygon(
+            860, 250, 812, 300, 785, 490, 935, 490, 908, 300,
+            fill="#000000", outline="#000000",
+        )
+        self.canvas.create_oval(
+            818, 205, 902, 310,
+            fill="#000000", outline="#000000",
+        )
+        self.canvas.create_oval(
+            835, 258, 850, 265, fill="#ffffff", outline="#ffffff",
+        )
+        self.canvas.create_oval(
+            870, 258, 885, 265, fill="#ffffff", outline="#ffffff",
+        )
+        self.canvas.create_text(
+            415, 560, text="Devam etmek için ENTER veya SPACE",
+            fill="#493722", font=("Arial", 12, "bold"),
         )
 
     def draw_information_page(self, title, text):
@@ -623,7 +934,6 @@ class CippOyunu:
         self.canvas.create_text(
             870, 25, text=f"Puan: {self.score}", font=("Arial", 13, "bold")
         )
-
         self.canvas.create_rectangle(
             12, 45, 800, 118, fill="#fffdf7", outline="#493722", width=2
         )
@@ -673,14 +983,84 @@ class CippOyunu:
             )
 
         for enemy in self.enemies:
+            enemy_type = enemy["type"]
+            enemy_colors = {
+                "normal": "#b5443c",
+                "shielded": "#397e9b",
+                "armed": "#bd762f",
+            }
+            if enemy_type == "armed" and 0 < enemy["shoot_cooldown"] <= 15:
+                self.canvas.create_line(
+                    enemy["x"], enemy["y"], self.player_x, self.player_y,
+                    fill="#e45b55", dash=(4, 3), width=2,
+                )
             self.canvas.create_oval(
                 enemy["x"] - 15,
                 enemy["y"] - 15,
                 enemy["x"] + 15,
                 enemy["y"] + 15,
-                fill="#b5443c",
+                fill=enemy_colors[enemy_type],
                 outline="#61221e",
                 width=2,
+            )
+            if enemy_type == "shielded":
+                self.canvas.create_oval(
+                    enemy["x"] - 19,
+                    enemy["y"] - 19,
+                    enemy["x"] + 19,
+                    enemy["y"] + 19,
+                    outline=("#73c7dc" if enemy["shield_active"] else "#69777a"),
+                    width=3,
+                )
+            type_labels = {
+                "normal": "Normal",
+                "shielded": "Kalkanlı",
+                "armed": "Uzaktan saldıran",
+            }
+            self.canvas.create_text(
+                enemy["x"], enemy["y"] - 31,
+                text=type_labels[enemy_type],
+                fill="#26353b",
+                font=("Arial", 8, "bold"),
+            )
+            health_width = 30 * enemy["health"] / enemy["max_health"]
+            self.canvas.create_rectangle(
+                enemy["x"] - 15,
+                enemy["y"] - 23,
+                enemy["x"] + 15,
+                enemy["y"] - 19,
+                fill="#fffdf7",
+                outline="#61221e",
+            )
+            self.canvas.create_rectangle(
+                enemy["x"] - 15,
+                enemy["y"] - 23,
+                enemy["x"] - 15 + health_width,
+                enemy["y"] - 19,
+                fill="#c9483f",
+                outline="",
+            )
+
+        for projectile in self.projectiles:
+            self.canvas.create_oval(
+                projectile["x"] - 5,
+                projectile["y"] - 5,
+                projectile["x"] + 5,
+                projectile["y"] + 5,
+                fill="#ffd166",
+                outline="#8a5a13",
+                width=1,
+            )
+
+        for projectile in self.enemy_projectiles:
+            self.canvas.create_oval(
+                projectile["x"] - 5,
+                projectile["y"] - 5,
+                projectile["x"] + 5,
+                projectile["y"] + 5,
+                fill="#55a99a",
+                outline="#286b61",
+                width=1,
             )
 
         player_color = "#287a68"
@@ -701,6 +1081,32 @@ class CippOyunu:
             outline="#123f38",
             width=2,
         )
+        if self.sword_swing_frames > 0:
+            progress = (8 - self.sword_swing_frames) / 7
+            swing_angle = self.sword_swing_angle + math.radians(
+                (progress - 0.5) * 100
+            )
+            sword_start_x = self.player_x + math.cos(swing_angle) * 12
+            sword_start_y = self.player_y + math.sin(swing_angle) * 12
+            sword_end_x = self.player_x + math.cos(swing_angle) * 82
+            sword_end_y = self.player_y + math.sin(swing_angle) * 82
+            self.canvas.create_line(
+                sword_start_x, sword_start_y, sword_end_x, sword_end_y,
+                fill="#493722", width=10, capstyle=tk.ROUND,
+            )
+            self.canvas.create_line(
+                sword_start_x, sword_start_y, sword_end_x, sword_end_y,
+                fill="#f5e3a1", width=5, capstyle=tk.ROUND,
+            )
+        if self.shield_block_frames > 0:
+            self.canvas.create_oval(
+                self.player_x - 27,
+                self.player_y - 27,
+                self.player_x + 27,
+                self.player_y + 27,
+                outline="#73c7dc",
+                width=3,
+            )
 
         for particle in self.particles:
             size = max(1, particle["life"] // 5)
@@ -726,20 +1132,93 @@ class CippOyunu:
 
         self.canvas.create_text(
             500,
-            675,
-            text="WASD: hareket   SPACE: saldırı   E: mühür/kapı   P: duraklat",
+            690,
+            text="SPACE: eşya kullan   Fare tekerleği: değiştir   I: envanter   P: duraklat   F11: tam ekran",
             font=("Arial", 11),
         )
         self.canvas.create_text(
-            500, 645, text=self.message, width=920, font=("Arial", 11)
+            500, 145, text=self.message, width=640, font=("Arial", 11)
         )
+        self.draw_hotbar()
 
         if self.game_state == "quiz":
             self.draw_question()
         elif self.game_state == "paused":
-            self.draw_overlay("Oyun duraklatıldı", "Devam etmek için P veya ESC")
+            self.draw_overlay(
+                "Oyun duraklatıldı",
+                "P: devam et    R: yeniden başla\nESC: ana menü",
+            )
+        elif self.game_state == "inventory":
+            self.draw_inventory()
         elif self.game_state == "dialog":
             self.draw_dialog()
+
+    def draw_hotbar(self):
+        item_names = {
+            "sword": "Kılıç",
+            "shield": "Kalkan",
+            "ranged": "Küre",
+        }
+        self.canvas.create_rectangle(
+            388, 596, 612, 669,
+            fill="#26383b", outline="#e4d6a8", width=2,
+        )
+        self.canvas.create_text(
+            500, 587, text="EŞYA DEĞİŞTİR: FARE TEKERLEĞİ",
+            fill="#26383b", font=("Arial", 9, "bold"),
+        )
+        for index, item in enumerate(("sword", "shield", "ranged")):
+            x1 = 396 + index * 69
+            unlocked = item in self.inventory
+            selected = item == self.equipped_item
+            fill = "#f2c14e" if selected else "#fffdf7" if unlocked else "#697274"
+            text_fill = "#26383b" if unlocked else "#d2d5d2"
+            self.canvas.create_rectangle(
+                x1, 604, x1 + 64, 661,
+                fill=fill,
+                outline="#fff2c2" if selected else "#829093",
+                width=3 if selected else 1,
+            )
+            self.canvas.create_text(
+                x1 + 8, 612, text=str(index + 1), anchor="nw",
+                fill=text_fill, font=("Arial", 8, "bold"),
+            )
+            self.canvas.create_text(
+                x1 + 32, 634,
+                text=item_names[item] if unlocked else "Kilitli",
+                fill=text_fill, font=("Arial", 10, "bold"),
+            )
+
+    def draw_inventory(self):
+        item_names = {
+            "sword": "Kılıç: yakın saldırı",
+            "shield": "Kalkan: zamanlamalı savunma",
+            "ranged": "Enerji küresi: uzak saldırı",
+        }
+        self.canvas.create_rectangle(
+            250, 190, 750, 510,
+            fill="#fffdf7", outline="#493722", width=3,
+        )
+        self.canvas.create_text(
+            500, 230, text="Envanter", font=("Georgia", 22, "bold")
+        )
+        for index, item in enumerate(self.inventory):
+            y = 295 + index * 58
+            selected = item == self.equipped_item
+            if selected:
+                self.canvas.create_rectangle(
+                    330, y - 21, 670, y + 21,
+                    fill="#dcebe3", outline="#287a68", width=2,
+                )
+            self.canvas.create_text(
+                500, y,
+                text=f"{index + 1}. {item_names[item]}" + ("  [Seçili]" if selected else ""),
+                font=("Arial", 14, "bold" if selected else "normal"),
+            )
+        self.canvas.create_text(
+            500, 470, text="Sayı tuşuyla seç  |  I veya ESC ile kapat",
+            font=("Arial", 11),
+        )
 
     def draw_question(self):
         question = QUESTIONS[self.active_seal["question"]]
@@ -770,19 +1249,56 @@ class CippOyunu:
         self.canvas.create_text(500, 315, text=title, font=("Arial", 22, "bold"))
         self.canvas.create_text(500, 370, text=text, font=("Arial", 13))
 
+    def scale_canvas(self):
+        canvas_width = max(1, self.canvas.winfo_width())
+        canvas_height = max(1, self.canvas.winfo_height())
+        scale = min(canvas_width / 1000, canvas_height / 700)
+        offset_x = (canvas_width - 1000 * scale) / 2
+        offset_y = (canvas_height - 700 * scale) / 2
+
+        self.canvas.scale("all", 0, 0, scale, scale)
+        self.canvas.move("all", offset_x, offset_y)
+
+        for item in self.canvas.find_all():
+            if self.canvas.type(item) != "text":
+                continue
+            font_description = self.canvas.itemcget(item, "font")
+            if not font_description:
+                continue
+            if font_description not in self.font_metrics:
+                font = tkfont.Font(root=self.root, font=font_description)
+                actual_font = font.actual()
+                self.font_metrics[font_description] = (
+                    actual_font["family"],
+                    abs(actual_font["size"]),
+                    actual_font["weight"],
+                    actual_font["slant"],
+                )
+            family, size, weight, slant = self.font_metrics[font_description]
+            scaled_size = max(7, round(size * scale))
+            self.canvas.itemconfigure(
+                item, font=(family, scaled_size, weight, slant)
+            )
+
     def game_loop(self):
         self.update_game()
 
-        if self.game_state == "menu":
+        if self.game_state == "intro":
+            self.draw_intro()
+        elif self.game_state == "menu":
             self.draw_menu()
         elif self.game_state == "howto":
             self.draw_information_page(
                 "Nasıl oynanır?",
-                "WASD ile hareket et. SPACE ile düşmanları yen. "
+                "WASD ile hareket et. I ile envanteri aç, sayı tuşlarıyla eşya seç. "
+                "Fare tekerleğiyle açılmış eşyalar arasında geçiş yap. "
+                "SPACE seçili eşyayı kullanır: kılıç yakın saldırı, kalkan savunma, "
+                "enerji küresi uzak saldırı yapar. "
+                "Normaller hızlıdır, kalkanlılar dayanıklıdır, uzaktan saldıranlar küre gönderir. "
+                "P ile duraklat; duraklatma ekranında R ile yeniden başlat. "
+                "F11 ile tam ekranı aç veya kapat. "
                 "Mühürlerin yanına gelip E tuşuna bas ve soruları cevapla. "
-                "Bölüm kapısını açmak için bütün mühürleri bul ve düşmanları yen. "
-                "Test modu için sırayla: Yukarı, Yukarı, Aşağı, Aşağı, "
-                "Sol, Sağ, Sol, Sağ, B, A. Test modu mühür sorularını atlar.",
+                "Bölüm kapısını açmak için bütün mühürleri bul ve düşmanları yen. ",
             )
         elif self.game_state == "about":
             self.draw_information_page(
@@ -791,7 +1307,7 @@ class CippOyunu:
                 "birbirine geçirilmesiyle yapılan geleneksel bir süsleme sanatıdır. "
                 "Bu oyundaki sorular kündekari kültürel mirası hakkındadır.",
             )
-        elif self.game_state in ("playing", "quiz", "paused", "dialog"):
+        elif self.game_state in ("playing", "quiz", "paused", "dialog", "inventory"):
             self.draw_game()
         elif self.game_state == "game_over":
             self.draw_information_page(
@@ -805,6 +1321,7 @@ class CippOyunu:
                 "Menüye dönmek için ENTER tuşuna bas.",
             )
 
+        self.scale_canvas()
         self.root.after(33, self.game_loop)
 
 
