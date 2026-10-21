@@ -300,6 +300,8 @@ class CippOyunu:
                 "shoot_cooldown": 45 + number * 13,
             })
 
+        self.game_state = "dialog"
+
     def key_down(self, event):
         key = event.keysym.lower()
         self.test_code.append(key)
