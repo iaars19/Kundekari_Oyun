@@ -928,6 +928,7 @@ class CippOyunu:
             500,
             25,
             text=stage_info["title"],
+            width=620,
             font=("Arial", 16, "bold"),
         )
         self.canvas.create_text(
@@ -1278,6 +1279,9 @@ class CippOyunu:
                 )
             family, size, weight, slant = self.font_metrics[font_description]
             scaled_size = max(7, round(size * scale))
+            text_width = self.canvas.itemcget(item, "width")
+            if text_width:
+                self.canvas.itemconfigure(item, width=float(text_width) * scale)
             self.canvas.itemconfigure(
                 item, font=(family, scaled_size, weight, slant)
             )
