@@ -1278,7 +1278,7 @@ class CippOyunu:
                     actual_font["slant"],
                 )
             family, size, weight, slant = self.font_metrics[font_description]
-            scaled_size = max(7, round(size * scale))
+            scaled_size = max(7, round(size * min(scale, 1.0)))
             text_width = self.canvas.itemcget(item, "width")
             if text_width:
                 self.canvas.itemconfigure(item, width=float(text_width) * scale)
