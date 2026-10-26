@@ -1,10 +1,47 @@
-Kundekari Sanati - Oyun Paketi
+Kündekari Sanatı - Oyun Paketi
+==============================
 
-Oyunu acmak icin KundekariSanati.exe dosyasina cift tiklayin.
-Python kurmaniz gerekmez.
+OYUNU BAŞLATMA
+--------------
+Windows'ta KundekariSanati.exe dosyasına çift tıklayın. Python kurmanız
+gerekmez.
 
-.exe dosyaları yapıları gereği doğru kaynaktan alınmaz ise tehlikeli olabilirler. Windows SmartScreen uyarisi gorunurse, dosyaları yalnizca güvenilir kaynaktan
-aldiginizdan eminseniz "Daha fazla bilgi" > "Yine de calistir" secenegini
-kullanin.
+KLASÖRDE NELER VAR?
+-------------------
+KundekariSanati.exe
+    Oyunun Windows'ta çalıştırılmaya hazır sürümü.
 
-Kundekari_Sanati_Oyun_Tanitimi_Ibrahim.docx dosyasi oyunun tanitim metnidir.
+Kaynak_Kod\
+    Oyunun Python kaynak kodu ve uygulamayı paketlemek için kullanılan
+    PyInstaller dosyası.
+
+Kundekari_Sanati_Oyun_Tanitimi.docx
+    Kök klasördeki oyunun tanıtım belgesi.
+
+FAREYLE KULLANIM
+----------------
+Giriş ekranına, ana menüdeki dört seçeneğe ve karakter konuşmalarına tıklayarak
+ilerleyebilirsiniz. Oyun sırasında alttaki eşya kutularına ve soru
+seçeneklerine tıklayarak seçim yapabilirsiniz. Karakteri hareket ettirmek için
+WASD veya yön tuşlarını kullanın.
+
+KAYNAK KODDAN ÇALIŞTIRMA
+-----------------------
+Python 3 kuruluysa, bu klasörde bir terminal açıp şu komutu çalıştırın:
+
+    py Kaynak_Kod\cin_cipp_kundekari_oyunu.py
+
+GELİŞTİRİCİLER İÇİN PAKETLEME
+----------------------------
+PyInstaller kuruluysa, Windows uygulamasını bu klasörde şu komutla yeniden
+oluşturabilirsiniz:
+
+    pyinstaller --noconfirm Kaynak_Kod\KundekariSanati.spec
+
+Oluşturulan uygulama dist\KundekariSanati.exe konumuna kaydedilir.
+
+WINDOWS GÜVENLİK UYARISI
+-----------------------
+.exe dosyaları yalnızca güvenilir bir kaynaktan indirilmelidir. Windows
+SmartScreen uyarı verirse, dosyanın kaynağına güveniyorsanız "Daha fazla
+bilgi" > "Yine de çalıştır" seçeneğini kullanabilirsiniz.

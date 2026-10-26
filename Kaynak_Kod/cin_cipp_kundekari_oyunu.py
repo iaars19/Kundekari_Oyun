@@ -128,7 +128,7 @@ STAGES = [
         "character_color": "#8b4b32",
         "character_position": (850, 560),
         "dialog": "Ben Dede Korkut. Oğuz anlatılarının bilge ozanıyım; ustalığın sırrı sabırdır.",
-        "places": [(70, 120, 240, 220, "Kündekari Atölyesi")],
+        "places": [(70, 145, 240, 245, "Kündekari Atölyesi")],
         "location_description": "Kündekari, küçük boyuttaki geometrik ahşap parçalarının çivi veya yapıştırıcı (tutkal) kullanılmadan, sadece birbirine geçmeli (zıvanalı/kinişli) şekilde kilitlenerek düz yüzeyler oluşturulmasıyla yapılan geleneksel bir Türk-İslam ahşap işçiliği sanatıdır.",
     },
     {
@@ -139,7 +139,7 @@ STAGES = [
         "character_color": "#3c7864",
         "character_position": (850, 560),
         "dialog": "Ben Ahi Evran. Zanaatında dürüstlük ve emeğe saygı önemlidir.",
-        "places": [(70, 120, 250, 230, "KAKMA")],
+        "places": [(70, 145, 250, 255, "KAKMA")],
         "location_description": "Kakma Sanatı, ahşap, taş veya metal yüzeylerde açılan oyuklara sedef, fildişi, kemik, gümüş tel ya da farklı renkte zıt malzeme parçalarının tam oturacak şekilde yerleştirilmesiyle yapılan bir yüzey süsleme (dekorasyon) sanatıdır.",
     },
     {
@@ -149,8 +149,8 @@ STAGES = [
         "character": "Mimar Sinan",
         "character_color": "#526c8a",
         "character_position": (850, 560),
-        "dialog": "Bir binanın güzelliği, parçalarının birbirine olan oranında ve o oranların yarattığı ahenktedir.",
-        "places": [(70, 120, 250, 250, "UNESCO Dünya Mirası (2023)")],
+        "dialog": "Ben Mimar Sinan. Bir binanın güzelliği, parçalarının birbirine olan oranında ve o oranların yarattığı ahenktedir.",
+        "places": [(70, 145, 250, 275, "UNESCO Dünya Mirası (2023)")],
         "location_description": "Beyşehir Eşrefoğlu Camii (Konya - 1299): Anadolu Selçuklu ve Beylikler döneminin ahşap mimarideki en görkemli yapısıdır. İçerisindeki 48 adet ahşap sütunu, ahşap konsolları ve kalem işi süslemelerinin yanı sıra minberi, kapı kanatları ve pencere kapakları tamamen kündekârî tekniğiyle yapılmıştır. Anadolu’nun ahşap tavanlı ve ahşap destekli camilerinin en büyüğüdür.",
     },
     {
@@ -161,7 +161,7 @@ STAGES = [
         "character_color": "#76523d",
         "character_position": (850, 560),
         "dialog": "Bursa Ulu Cami, benim padişahlık dönemimde yapılmıştır. Minberin kündekârî ustası ise Antepli Mehmed oğlu Hacı Muhammed'dir. Kullanılan ahşap parça sayısının (yaklaşık 6.666 adet) İslam dininin kutsal kitabı Kur'an’daki ayet sayısına denk getirildiği ifade edilir. Minberin doğu cephesindeki geometrik kabartma desenlerin ise Güneş Sistemi'ni ve gezegenlerin dizilimini sembolize ettiği kabul edilir.",
-        "places": [(70, 120, 250, 230, "MİNBER")],
+        "places": [(70, 145, 250, 255, "MİNBER")],
         "location_description": "Minber, cuma ve bayram namazlarında hutbe okumak amacıyla camilerde mihrabın sağına yapılan; süslü kapısı, merdiveni ve özellikle kündekârî ahşap sanatının en nadide örneklerinin sergilendiği mimari yapıdır.",
     },
     {
@@ -172,7 +172,7 @@ STAGES = [
         "character_color": "#47776e",
         "character_position": (850, 560),
         "dialog": "Ben Mevlânâ Celâleddîn-i Rûmî, anlayış ve sevgi felsefesiyle tüm insanlığa kucak açan 13. yüzyıl tasavvuf alimi ve şairiyim. Konya’daki türbemde sanduka muhafazalarında, kapılarda ve rahlelerde kündekârî örneklerini görebilirsiniz.",
-        "places": [(70, 120, 250, 250, "MİRAS SANDIĞI")],
+        "places": [(70, 145, 250, 275, "MİRAS SANDIĞI")],
         "location_description": "Kündekârî sanatı, neme ve sıcaklık değişimlerine karşı son derece dayanıklı bir ahşap geçme tekniği olduğu için saraylar, kasırlar, medreseler, şifahaneler, türbeler ve anıt mezarlarda da yoğun olarak kullanılmıştır.",
     },
 ]
@@ -194,6 +194,7 @@ class CippOyunu:
 
         self.root.bind("<KeyPress>", self.key_down)
         self.root.bind("<KeyRelease>", self.key_up)
+        self.canvas.bind("<Button-1>", self.handle_click)
         self.canvas.bind("<MouseWheel>", self.mouse_wheel)
         self.canvas.bind("<Button-4>", self.mouse_wheel)
         self.canvas.bind("<Button-5>", self.mouse_wheel)
@@ -331,13 +332,13 @@ class CippOyunu:
 
         if self.game_state == "menu":
             if key in ("1", "return"):
-                self.start_game()
+                self.activate_menu_option("start")
             elif key == "2":
-                self.game_state = "howto"
+                self.activate_menu_option("howto")
             elif key == "3":
-                self.game_state = "about"
+                self.activate_menu_option("about")
             elif key == "4":
-                self.root.quit()
+                self.activate_menu_option("quit")
             return
 
         if self.game_state in ("howto", "about"):
@@ -376,6 +377,10 @@ class CippOyunu:
                 self.answer_question(int(key) - 1)
             return
 
+        if key in ("1", "2", "3"):
+            self.select_inventory_item(int(key) - 1)
+            return
+
         if key in ("escape", "p"):
             self.game_state = "paused"
         elif key == "i":
@@ -392,6 +397,74 @@ class CippOyunu:
     def key_up(self, event):
         key = event.keysym.lower()
         self.keys.discard(key)
+
+    def activate_menu_option(self, option):
+        if option == "start":
+            self.start_game()
+        elif option == "howto":
+            self.game_state = "howto"
+        elif option == "about":
+            self.game_state = "about"
+        elif option == "quit":
+            self.root.quit()
+
+    def handle_click(self, event):
+        canvas_width = max(1, self.canvas.winfo_width())
+        canvas_height = max(1, self.canvas.winfo_height())
+        scale = min(canvas_width / 1000, canvas_height / 700)
+        offset_x = (canvas_width - 1000 * scale) / 2
+        offset_y = (canvas_height - 700 * scale) / 2
+        x = (event.x - offset_x) / scale
+        y = (event.y - offset_y) / scale
+
+        if self.game_state == "intro":
+            self.game_state = "menu"
+        elif self.game_state == "menu":
+            if 320 <= x <= 680 and 430 <= y < 638:
+                button_index = int((y - 430) // 52)
+                button_top = 430 + button_index * 52
+                if button_index < 4 and y < button_top + 44:
+                    options = ("start", "howto", "about", "quit")
+                    self.activate_menu_option(options[button_index])
+        elif self.game_state == "dialog":
+            self.game_state = "playing"
+        elif self.game_state in ("howto", "about", "victory", "game_over"):
+            self.game_state = "menu"
+        elif self.game_state == "playing":
+            if 604 <= y <= 661 and 396 <= x <= 598:
+                self.select_inventory_item(int((x - 396) // 69))
+            else:
+                stage_info = STAGES[self.stage - 1]
+                character_x, character_y = stage_info["character_position"]
+                targets = [(character_x, character_y, 45)]
+                targets.extend(
+                    (seal["x"], seal["y"], 32)
+                    for seal in self.seals
+                    if not seal["collected"]
+                )
+                if self.stage_is_complete():
+                    targets.append((500, 150, 35))
+
+                if any(
+                    math.hypot(x - target_x, y - target_y) <= target_radius
+                    and math.hypot(
+                        self.player_x - target_x, self.player_y - target_y
+                    ) <= 55
+                    for target_x, target_y, target_radius in targets
+                ):
+                    self.interact()
+        elif self.game_state == "quiz":
+            if 140 <= x <= 860 and 266 <= y <= 458:
+                answer_index = round((y - 290) / 48)
+                answer_y = 290 + answer_index * 48
+                if 0 <= answer_index < 4 and abs(y - answer_y) <= 20:
+                    self.answer_question(answer_index)
+        elif self.game_state == "inventory":
+            if 330 <= x <= 670:
+                item_index = round((y - 295) / 58)
+                item_y = 295 + item_index * 58
+                if 0 <= item_index < len(self.inventory) and abs(y - item_y) <= 21:
+                    self.select_inventory_item(item_index)
 
     def select_inventory_item(self, index):
         if index >= len(self.inventory):
@@ -442,7 +515,7 @@ class CippOyunu:
             self.player_y += change_y / distance * 4
 
         self.player_x = max(25, min(975, self.player_x))
-        self.player_y = max(70, min(570, self.player_y))
+        self.player_y = max(145, min(570, self.player_y))
 
     def move_enemies(self):
         if self.hit_cooldown > 0:
@@ -491,6 +564,7 @@ class CippOyunu:
             elif self.hit_cooldown == 0:
                 self.damage_player("Düşman sana dokundu!")
 
+            enemy["y"] = max(165, min(570, enemy["y"]))
             if enemy_type != "armed" and distance <= 28 and self.hit_cooldown == 0:
                 self.damage_player("Düşman sana dokundu!")
 
@@ -676,7 +750,7 @@ class CippOyunu:
                 return
 
         if self.stage_is_complete():
-            distance_to_gate = math.hypot(self.player_x - 500, self.player_y - 90)
+            distance_to_gate = math.hypot(self.player_x - 500, self.player_y - 150)
             if distance_to_gate < 60:
                 if self.stage == len(STAGES):
                     self.game_state = "victory"
@@ -783,19 +857,22 @@ class CippOyunu:
             font=("Arial", 12),
         )
         
-        self.canvas.create_text(
-            500,
-            440,
-            text="1: Oyuna başla     2: Nasıl oynanır?     3: Hakkında     4: Çıkış",
-            fill="#f4eee2", font=("Arial", 14),
+        menu_buttons = (
+            ("Oyuna Başla", "#b88343"),
+            ("Nasıl Oynanır?", "#39756c"),
+            ("Hakkında", "#39756c"),
+            ("Çıkış", "#754d45"),
         )
-
-        self.canvas.create_text(
-            100,
-            650,
-            text="WASD/Yön: hareket   SPACE: eşya kullan   I: envanter   P: duraklat",
-            fill="#003f24", font=("Arial", 10),
-        )
+        for index, (label, color) in enumerate(menu_buttons):
+            top = 430 + index * 52
+            self.canvas.create_rectangle(
+                320, top, 680, top + 44,
+                fill=color, outline="#f6d98b", width=2,
+            )
+            self.canvas.create_text(
+                500, top + 22, text=label, fill="#fffdf7",
+                font=("Arial", 13, "bold"),
+            )
 
 
     def draw_intro(self):
@@ -824,7 +901,7 @@ class CippOyunu:
             text=(
                 "WASD / yön tuşları: hareket\n"
                 "SPACE: seçili eşyayı kullan    E: etkileşim\n"
-                "Fare tekerleği: eşya değiştir    I: envanter\n"
+                "1, 2, 3: eşya seç    Fare tekerleği: eşya değiştir    I: envanter\n"
                 "P: duraklat\n"
                 "F11: tam ekran\n"
                 "Duraklatınca R: yeniden başlat"
@@ -846,7 +923,7 @@ class CippOyunu:
             870, 258, 885, 265, fill="#ffffff", outline="#ffffff",
         )
         self.canvas.create_text(
-            415, 560, text="Devam etmek için ENTER veya SPACE",
+            415, 560, text="Devam etmek için ENTER, SPACE veya tıkla",
             fill="#493722", font=("Arial", 12, "bold"),
         )
 
@@ -858,7 +935,8 @@ class CippOyunu:
             500, 320, text=text, width=700, justify="center", font=("Arial", 15)
         )
         self.canvas.create_text(
-            500, 600, text="Menüye dönmek için ENTER", font=("Arial", 12)
+            500, 600, text="Menüye dönmek için ENTER veya tıkla",
+            font=("Arial", 12),
         )
 
     def draw_character(self):
@@ -902,7 +980,7 @@ class CippOyunu:
             width=590, justify="center", font=("Arial", 12),
         )
         self.canvas.create_text(
-            500, 610, text="Devam etmek için E tuşuna bas",
+            500, 610, text="Devam etmek için E tuşuna bas veya tıkla",
             font=("Arial", 10),
         )
 
@@ -912,8 +990,8 @@ class CippOyunu:
         self.canvas.configure(bg=stage_info["color"])
 
         for x in range(30, 1000, 50):
-            self.canvas.create_line(x, 55, x, 690, fill="#ffffff", stipple="gray12")
-        for y in range(55, 700, 50):
+            self.canvas.create_line(x, 120, x, 690, fill="#ffffff", stipple="gray12")
+        for y in range(120, 700, 50):
             self.canvas.create_line(0, y, 1000, y, fill="#ffffff", stipple="gray12")
 
         for particle in self.ambient_particles:
@@ -937,18 +1015,6 @@ class CippOyunu:
         self.canvas.create_text(
             870, 25, text=f"Puan: {self.score}", font=("Arial", 13, "bold")
         )
-        self.canvas.create_rectangle(
-            12, 45, 800, 118, fill="#fffdf7", outline="#493722", width=2
-        )
-        self.canvas.create_text(
-            24, 51, text=stage_info["places"][0][4],
-            anchor="nw", font=("Arial", 11, "bold"),
-        )
-        self.canvas.create_text(
-            24, 73, text=stage_info["location_description"],
-            anchor="nw", width=760, justify="left", font=("Arial", 7),
-        )
-
         for x1, y1, x2, y2, name in stage_info["places"]:
             self.canvas.create_rectangle(
                 x1, y1, x2, y2, fill="#9b7653", outline="#493722", width=2
@@ -1125,18 +1191,29 @@ class CippOyunu:
         if self.stage_is_complete():
             pulse = math.sin(self.frame_count / 4) * 7
             self.canvas.create_oval(
-                465 - pulse, 65 - pulse, 535 + pulse, 110 + pulse,
+                465 - pulse, 125 - pulse, 535 + pulse, 175 + pulse,
                 outline="#b7f7c4", width=3,
             )
             self.canvas.create_rectangle(
-                465, 65, 535, 110, fill="#438c54", outline="#174b2a", width=2
+                465, 125, 535, 175, fill="#438c54", outline="#174b2a", width=2
             )
-            self.canvas.create_text(500, 125, text="Kapı: E", font=("Arial", 11))
+            self.canvas.create_text(500, 185, text="Kapı: E", font=("Arial", 11))
 
+        self.canvas.create_rectangle(
+            12, 45, 800, 118, fill="#fffdf7", outline="#493722", width=2
+        )
+        self.canvas.create_text(
+            24, 51, text=stage_info["places"][0][4],
+            anchor="nw", font=("Arial", 11, "bold"),
+        )
+        self.canvas.create_text(
+            24, 73, text=stage_info["location_description"],
+            anchor="nw", width=760, justify="left", font=("Arial", 7),
+        )
         self.canvas.create_text(
             500,
             690,
-            text="SPACE: eşya kullan   Fare tekerleği: değiştir   I: envanter   P: duraklat   F11: tam ekran",
+            text="1/2/3: eşya seç   SPACE: kullan   Fare tekerleği: değiştir   I: envanter   P: duraklat   F11: tam ekran",
             font=("Arial", 11),
         )
         self.canvas.create_text(
@@ -1219,7 +1296,7 @@ class CippOyunu:
                 font=("Arial", 14, "bold" if selected else "normal"),
             )
         self.canvas.create_text(
-            500, 470, text="Sayı tuşuyla seç  |  I veya ESC ile kapat",
+            500, 470, text="Eşyaya tıklayarak veya sayı tuşuyla seç  |  I/ESC: kapat",
             font=("Arial", 11),
         )
 
@@ -1242,7 +1319,8 @@ class CippOyunu:
             )
 
         self.canvas.create_text(
-            500, 500, text="Cevap için 1, 2, 3 veya 4 tuşuna bas", font=("Arial", 12)
+            500, 500, text="Cevap için seçeneğe tıkla veya 1, 2, 3, 4'e bas",
+            font=("Arial", 12),
         )
 
     def draw_overlay(self, title, text):
@@ -1296,7 +1374,11 @@ class CippOyunu:
         elif self.game_state == "howto":
             self.draw_information_page(
                 "Nasıl oynanır?",
-                "WASD ile hareket et. I ile envanteri aç, sayı tuşlarıyla eşya seç. "
+                "WASD ile hareket et. Menü, eşya ve soru seçeneklerine tıklayarak "
+                "seçim yapabilirsin. Mühürlere ve kapıya yaklaştığında üzerlerine "
+                "tıklayarak etkileşime geçebilirsin. "
+                "1, 2, 3 tuşlarıyla eşyaları doğrudan seç; "
+                "I ile envanteri aç. "
                 "Fare tekerleğiyle açılmış eşyalar arasında geçiş yap. "
                 "SPACE seçili eşyayı kullanır: kılıç yakın saldırı, kalkan savunma, "
                 "enerji küresi uzak saldırı yapar. "
